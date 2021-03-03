@@ -1,10 +1,10 @@
-![Banner](https://github.com/gullwing/gulldroid/raw/master/files/banner.png)
+![Banner](https://github.com/project-gullwing/gulldroid/blob/master/files/banner.png)
 
-# gulldroid
+# GULLdroid
 
 ## Description
-gulldroid is an Android remote control app for the Gullwing project.
+GULLdroid is an Android remote control app for the Gullwing project.
 
-It is designed to operate in conjunction with [gullware](https://github.com/project-gullwing/gullware) over a Bluetooth Low Energy interface.
+It is designed to operate in conjunction with [GULLware](https://github.com/project-gullwing/gullware) over a Bluetooth Low Energy interface.
 
 
