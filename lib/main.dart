@@ -1,27 +1,28 @@
-import 'dart:async';
-import 'dart:convert';
-
-import 'package:dobdroid/direction.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_blue/flutter_blue.dart';
-import 'package:intl/intl.dart';
 
-void main() => runApp(MyApp());
+void main() {
+  runApp(MyApp());
+}
 
 class MyApp extends StatelessWidget {
+  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'DOB@STL',
+      title: 'Flutter Demo',
       theme: ThemeData(
-        brightness: Brightness.dark,
-        backgroundColor: Colors.black54,
-        dialogBackgroundColor: Colors.black12,
-        scaffoldBackgroundColor: Colors.black54,
-        primarySwatch: Colors.orange,
-        accentColor: Colors.orange,
+        // This is the theme of your application.
+        //
+        // Try running your application with "flutter run". You'll see the
+        // application has a blue toolbar. Then, without quitting the app, try
+        // changing the primarySwatch below to Colors.green and then invoke
+        // "hot reload" (press "r" in the console where you ran "flutter run",
+        // or simply save your changes to "hot reload" in a Flutter IDE).
+        // Notice that the counter didn't reset back to zero; the application
+        // is not restarted.
+        primarySwatch: Colors.blue,
       ),
-      home: MyHomePage(title: 'DOB@STL'),
+      home: MyHomePage(title: 'Flutter Demo Home Page'),
     );
   }
 }
@@ -29,194 +30,33 @@ class MyApp extends StatelessWidget {
 class MyHomePage extends StatefulWidget {
   MyHomePage({Key key, this.title}) : super(key: key);
 
+  // This widget is the home page of your application. It is stateful, meaning
+  // that it has a State object (defined below) that contains fields that affect
+  // how it looks.
+
+  // This class is the configuration for the state. It holds the values (in this
+  // case the title) provided by the parent (in this case the App widget) and
+  // used by the build method of the State. Fields in a Widget subclass are
+  // always marked "final".
+
   final String title;
 
   @override
   _MyHomePageState createState() => _MyHomePageState();
 }
 
-enum Command { LEFT, RIGHT, UP, DOWN }
+class _MyHomePageState extends State<MyHomePage> {
+  int _counter = 0;
 
-class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
-  NumberFormat fmtAngle = new NumberFormat('###.00');
-  NumberFormat fmtSpeed = new NumberFormat('#.00');
-  FlutterBlue _flutterBlue = FlutterBlue.instance;
-  BluetoothDevice _dobastl;
-  BluetoothCharacteristic rxCharacteristic;
-  BluetoothCharacteristic txCharacteristic;
-  GlobalKey<DirectionState> _keyDir = GlobalKey();
-
-  bool _scanning = false;
-  bool _connected = false;
-
-  String tx1 = "";
-  String tx2 = "";
-
-  @override
-  void initState() {
-    super.initState();
-    _flutterBlue.setLogLevel(LogLevel.info);
-    print('Flutter blue log level: ${_flutterBlue.logLevel}');
-    WidgetsBinding.instance.addObserver(this);
-    _connectBLE();
-  }
-
-  @override
-  void dispose() async {
-    await _disconnectBLE();
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) async {
-    switch (state) {
-      case AppLifecycleState.detached:
-        {
-          print('Detached');
-          await _disconnectBLE();
-          break;
-        }
-      case AppLifecycleState.inactive:
-        {
-          print('Inactive');
-          break;
-        }
-      case AppLifecycleState.paused:
-        {
-          print('Paused');
-          await _disconnectBLE();
-          break;
-        }
-      case AppLifecycleState.resumed:
-        {
-          print('Resumed');
-          _connectBLE();
-          break;
-        }
-    }
-    super.didChangeAppLifecycleState(state);
-  }
-
-  void _connectBLE() {
-    StreamSubscription<ScanResult> scanSubscription;
-
-    try {
-      scanSubscription = _flutterBlue.scan().listen((scanResult) async {
-        setState(() {
-          _scanning = true;
-          _connected = false;
-        });
-
-        final BluetoothDevice device = scanResult.device;
-        if (device.name == 'DOBastl') {
-          scanSubscription.cancel();
-          _flutterBlue.stopScan();
-          await device.connect();
-          print('DOBastl found');
-
-          setState(() {
-            _dobastl = device;
-          });
-
-          List<BluetoothService> services = await device.discoverServices();
-          services.forEach((service) async {
-            await _handleBLEService(service);
-          });
-        }
-      });
-
-    } catch (e) {
-      print('Kunda');
-    }
-  }
-
-  Future _disconnectBLE() async {
-    if ((null != txCharacteristic) && (txCharacteristic.isNotifying)) {
-      await txCharacteristic.setNotifyValue(false);
-    }
-    if (null != _dobastl) {
-      await _dobastl.disconnect();
-    }
+  void _incrementCounter() {
     setState(() {
-      txCharacteristic = null;
-      rxCharacteristic = null;
-      _dobastl = null;
-      _scanning = false;
-      _connected = false;
-      print('BLE disconnected');
+      // This call to setState tells the Flutter framework that something has
+      // changed in this State, which causes it to rerun the build method below
+      // so that the display can reflect the updated values. If we changed
+      // _counter without calling setState(), then the build method would not be
+      // called again, and so nothing would appear to happen.
+      _counter++;
     });
-  }
-
-  Future _handleBLEService(BluetoothService service) async {
-    if (service.uuid.toString() == '6e400001-b5a3-f393-e0a9-e50e24dcca9e') {
-      print(service.uuid.toString());
-      var characteristics = service.characteristics;
-      for (BluetoothCharacteristic c in characteristics) {
-        if (c.uuid.toString() == '6e400002-b5a3-f393-e0a9-e50e24dcca9e') {
-          rxCharacteristic = c;
-        }
-        if (c.uuid.toString() == '6e400003-b5a3-f393-e0a9-e50e24dcca9e') {
-          txCharacteristic = c;
-        }
-      }
-      await txCharacteristic.setNotifyValue(true);
-      txCharacteristic.value.listen((value) {
-        _updateDeviceStatus(value);
-      });
-      if ((null != rxCharacteristic) && (null != txCharacteristic)) {
-        setState(() {
-          _scanning = false;
-          _connected = true;
-          print('BLE connected');
-        });
-      }
-    }
-  }
-
-  void _updateDeviceStatus(List<int> value) {
-    setState(() {
-      String t = utf8.decode(value);
-      //print('[$t]');
-      if (t.startsWith('A')) {
-        tx1 = t;
-        final idxA = t.indexOf('A');
-        final idxS = t.indexOf('S');
-        final idxZ = t.indexOf('Z');
-        final idxL = t.indexOf('L');
-        if ((idxA >= 0) && (idxS >= 0) && (idxZ >= 0) && (idxL >= 0)) {
-          final aAngleDeg = double.parse(t.substring(idxA + 1, idxS));
-          final aSpeedDegSec = double.parse(t.substring(idxS + 1, idxZ));
-          final aMsAzi = int.parse(t.substring(idxZ + 1, idxL));
-          final aMsAlt = int.parse(t.substring(idxL + 1));
-          _keyDir.currentState.setActualDynamicParams(aAngleDeg, aSpeedDegSec);
-        }
-      } else if (t.startsWith('P')) {
-          tx2 = t;
-          final idxPosAzi = t.indexOf('PZ');
-          final idxPosAlt = t.indexOf('PL');
-          final aPosAziDeg = double.parse(t.substring(idxPosAzi + 2, idxPosAlt));
-          final aPosAltDeg = double.parse(t.substring(idxPosAlt + 2));
-      }
-    });
-  }
-
-  void _onPointerMove(double angleDeg, double speedDegSec) {
-    _sendBLEMessage('M ${fmtAngle.format(angleDeg)} ${fmtSpeed.format(speedDegSec)}');
-  }
-
-  void _onPointerIdle() {
-    _sendBLEMessage('I ');
-  }
-
-  void _onHardStop() {
-    _sendBLEMessage('X ');
-  }
-
-  void _sendBLEMessage(String msg) async {
-    if (null != rxCharacteristic) {
-      await rxCharacteristic.write(utf8.encode(msg));
-    }
   }
 
   @override
@@ -228,39 +68,46 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     // fast, so that you can just rebuild anything that needs updating rather
     // than having to individually change instances of widgets.
     return Scaffold(
-        appBar: AppBar(
-          // Here we take the value from the MyHomePage object that was created by
-          // the App.build method, and use it to set our appbar title.
-          title: Text(widget.title),
-          leading: Icon(
-            _scanning ? Icons.bluetooth_searching : _connected ? Icons.bluetooth_connected : Icons.bluetooth_disabled,
-            color: _connected ? Colors.lightBlueAccent : Colors.white70,
-            //size: 24,
-          ),
-        ),
-        body: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+      appBar: AppBar(
+        // Here we take the value from the MyHomePage object that was created by
+        // the App.build method, and use it to set our appbar title.
+        title: Text(widget.title),
+      ),
+      body: Center(
+        // Center is a layout widget. It takes a single child and positions it
+        // in the middle of the parent.
+        child: Column(
+          // Column is also a layout widget. It takes a list of children and
+          // arranges them vertically. By default, it sizes itself to fit its
+          // children horizontally, and tries to be as tall as its parent.
+          //
+          // Invoke "debug painting" (press "p" in the console, choose the
+          // "Toggle Debug Paint" action from the Flutter Inspector in Android
+          // Studio, or the "Toggle Debug Paint" command in Visual Studio Code)
+          // to see the wireframe for each widget.
+          //
+          // Column has various properties to control how it sizes itself and
+          // how it positions its children. Here we use mainAxisAlignment to
+          // center the children vertically; the main axis here is the vertical
+          // axis because Columns are vertical (the cross axis would be
+          // horizontal).
+          mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            IconButton(
-                icon: Icon(Icons.block),
-                tooltip: 'Hard stop',
-                onPressed: () {
-                  _onHardStop();
-                }),
-            Text(tx1),
-            Text(tx2),
-            Expanded(
-                child: Direction(
-              key: _keyDir,
-              onMove: (double angleDeg, double speedDegSec) {
-                _onPointerMove(angleDeg, speedDegSec);
-              },
-              onIdle: () {
-                _onPointerIdle();
-              },
-              maxSpeedDegSec: 2.5,
-            ))
+            Text(
+              'You have pushed the button this many times:',
+            ),
+            Text(
+              '$_counter',
+              style: Theme.of(context).textTheme.headline4,
+            ),
           ],
-        ));
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _incrementCounter,
+        tooltip: 'Increment',
+        child: Icon(Icons.add),
+      ), // This trailing comma makes auto-formatting nicer for build methods.
+    );
   }
 }
